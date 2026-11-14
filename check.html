@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>연결 점검 · 21~28차시 확인 평가</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="app.css">
+<style>
+body{font-size:17px}
+.wrap{max-width:720px;margin:0 auto;padding:40px 16px 60px}
+.eb{font-size:13px;letter-spacing:.14em;color:var(--muted);font-weight:700}
+h1{font-size:30px;letter-spacing:-.02em;margin:6px 0 6px}
+.lead{color:var(--ink-2);margin:0 0 22px}
+.list{background:#fff;border:1px solid var(--rule);border-radius:12px;overflow:hidden}
+.item{display:grid;grid-template-columns:34px 1fr;gap:12px;padding:16px 18px;border-bottom:1px solid var(--rule-2)}
+.item:last-child{border-bottom:0}
+.ic{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff;background:#c9c5bc}
+.item.ok .ic{background:var(--ok)} .item.bad .ic{background:var(--err)} .item.warn .ic{background:#c18a1c} .item.run .ic{background:var(--accent-2)}
+.item b{display:block;font-size:16.5px}
+.item .d{font-size:15px;color:var(--ink-2);margin-top:2px;line-height:1.6}
+.item .d code{font-family:var(--mono);font-size:13.5px;background:var(--tint);border:1px solid var(--rule-2);border-radius:4px;padding:0 5px;word-break:break-all}
+.pwrow{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.pwrow .input{max-width:180px;height:44px;font-size:18px}
+.links{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eb">고급 대수 · 21~24차시 / 25~28차시 확인 평가</div>
+  <h1>연결 점검</h1>
+  <p class="lead">수업 전에 이 페이지를 열어 모든 항목이 초록색인지 확인하세요. 빨간 항목이 있으면 그 아래 안내대로 고치면 됩니다.</p>
+  <div class="list" id="list"></div>
+  <div class="links">
+    <a class="btn" href="index.html?exam=A">학생 화면 · 평가 A</a>
+    <a class="btn" href="index.html?exam=B">학생 화면 · 평가 B</a>
+    <a class="btn" href="teacher.html">교사 화면 열기</a>
+    <button class="btn ghost" type="button" onclick="location.reload()">다시 점검</button>
+  </div>
+</div>
+<script src="config.js"></script>
+<script src="vendor/katex.js"></script>
+<script src="problems.js"></script>
+<script src="db.js"></script>
+<script>
+(function(){
+  var DB = window.T4DB, list = document.getElementById('list');
+  function item(state, title, desc){
+    var d = document.createElement('div'); d.className = 'item ' + state;
+    d.innerHTML = '<span class="ic">' + ({ ok: '✓', bad: '!', warn: '·', run: '…' }[state] || '') + '</span><div><b></b><div class="d"></div></div>';
+    d.querySelector('b').textContent = title; d.querySelector('.d').innerHTML = desc || '';
+    list.appendChild(d); return d;
+  }
+  function set(d, state, title, desc){ d.className = 'item ' + state; d.querySelector('.ic').textContent = { ok: '✓', bad: '!', warn: '·', run: '…' }[state]; d.querySelector('b').textContent = title; d.querySelector('.d').innerHTML = desc || ''; }
+
+  // 1. 파일
+  if (!window.T4_CONFIG && !window.T3_CONFIG) { item('bad', 'config.js를 읽지 못했습니다', 'config.js 파일이 index.html과 같은 폴더에 있는지, 이름이 정확히 <code>config.js</code>인지 확인하세요.'); return; }
+  var filesOk = window.EXAMS && window.EXAMS.A && window.EXAMS.B && window.renderMathInElement;
+  item(filesOk ? 'ok' : 'bad', filesOk ? '화면 파일 정상' : '일부 파일이 없습니다',
+       filesOk ? 'problems.js, 수식 표시 파일이 함께 올라가 있습니다.' : '<code>problems.js</code>와 <code>vendor</code> 폴더(katex.css, katex.js)도 함께 올렸는지 확인하세요.');
+
+  // 2. 설정
+  if (DB.mode === 'demo') { item('warn', '데모 모드입니다', 'config.js의 SUPABASE_URL과 SUPABASE_ANON_KEY가 비어 있어 이 기기 안에서만 저장됩니다. 실제 수업에서는 두 값을 넣어야 선생님 화면에 학생 답안이 모입니다.'); return; }
+  if (DB.mode === 'broken') { item('bad', '설정값 오류', DB.problem); return; }
+  item('ok', 'config.js 설정값 형식 정상', '주소: <code>' + DB.cfg.url.replace(/[<>&]/g, '') + '</code>');
+
+  // 3. 서버·SQL
+  var c = item('run', 'Supabase 연결 확인 중…', '');
+  DB.ping().then(function (r) {
+    var kOk = r.keys_a === 10 && r.keys_b === 10;
+    set(c, kOk ? 'ok' : 'warn', 'Supabase 연결 · SQL 설치 ' + (kOk ? '정상' : '확인 필요'), '평가용 함수가 준비되어 있습니다. 정답표: 평가 A ' + (r.keys_a || 0) + '문항 · 평가 B ' + (r.keys_b || 0) + '문항' + (kOk ? '' : ' — supabase_setup.sql을 처음부터 끝까지 다시 실행하세요.'));
+    if (!r.password_set) { item('bad', '교사 비밀번호가 설정되지 않았습니다', 'SQL Editor에서 <code>select public.t4_set_password(\'0417\');</code>을 실행하세요.'); return; }
+    var p = item('warn', '교사 비밀번호 확인 (선택)', '<div class="pwrow"><input class="input mono" id="pw" type="password" inputmode="numeric" placeholder="비밀번호"><button class="btn small" id="pwb" type="button">확인</button></div>');
+    p.querySelector('#pwb').onclick = function () {
+      var v = p.querySelector('#pw').value.trim(); if (!v) return;
+      DB.tLogin(v).then(function () { set(p, 'ok', '교사 비밀번호 정상', '교사 화면에 이 비밀번호로 들어갈 수 있습니다.'); },
+        function (e) { set(p, 'bad', '교사 비밀번호 확인 실패', DB.explain(e) + (e.code === 'BAD' ? ' 기본값은 0417입니다.' : '')); });
+    };
+  }, function (e) {
+    var fix = {
+      NET: '① config.js의 SUPABASE_URL이 <code>https://영문.supabase.co</code> 형태인지 ② 인터넷이 되는지 확인하세요.',
+      KEY: 'Supabase → Project Settings → API Keys → Legacy API Keys의 <b>anon public</b> 키를 다시 복사해 config.js에 붙여 넣으세요.',
+      NOSQL: 'Supabase → SQL Editor → New query에 <code>supabase_setup.sql</code> 전체를 붙여 넣고 Run 하세요.',
+      SERVER: 'Supabase 대시보드에서 프로젝트가 Paused(일시정지) 상태면 Restore를 누르세요. 1~2분 뒤 다시 점검하세요.'
+    }[e.code] || '';
+    set(c, 'bad', DB.explain(e), fix);
+  });
+})();
+</script>
+</body>
+</html>
